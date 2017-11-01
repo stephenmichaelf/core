@@ -1,0 +1,49 @@
+phases:
+
+################################################################################
+- phase: phase1
+################################################################################
+  displayName: Phase 1
+  queue:
+    name: Hosted VS2017
+    #demands: agent.os -equals Windows_NT
+  steps:
+
+  # dotnet restore
+  - task: DotNetCoreCLI@1
+    displayName: "Dotnet restore"
+    inputs:
+      command: "restore"
+      projects: "**/*.csproj"
+      arguments: ""
+  
+  # dotnet build
+  - task: DotNetCoreCLI@1
+    displayName: "Dotnet build"
+    inputs:
+      command: "build"
+      projects: "**/*.csproj"
+      arguments: "--configuration $(BuildConfiguration)"
+
+  # dotnet test
+  - task: DotNetCoreCLI@1
+    displayName: "Dotnet test"
+    inputs:
+      command: "test"
+      projects: "**/*Tests/*.csproj"
+      arguments: "--configuration $(BuildConfiguration)"
+
+  # dotnet publish
+  # - task: DotNetCoreCLI@1
+    # displayName: "Dotnet publish"
+    # inputs:
+      # command: "publish"
+      # arguments: "--configuration $(BuildConfiguration) --output $(build.artifactstagingdirectory)"
+
+  # Publish artifact
+  # - task: PublishBuildArtifacts@1
+    # displayName: Publish Artifact
+    # inputs:
+      # pathToPublish: $(Build.ArtifactStagingDirectory)
+      # artifactName: drop
+      # artifactType: container
