@@ -62,23 +62,33 @@ namespace Bit.Core.Services
                 return;
             }
 
-            var orgs = await _organizationRepository.GetManyByEnabledAsync();
-            _logger.LogInformation("Validating licenses for {0} organizations.", orgs.Count);
+            var enabledOrgs = await _organizationRepository.GetManyByEnabledAsync();
+            _logger.LogInformation("Validating licenses for {0} organizations.", enabledOrgs.Count);
 
-            foreach(var org in orgs)
+            foreach(var org in enabledOrgs)
             {
                 var license = ReadOrganiztionLicense(org);
-                if(license == null || !license.VerifyData(org, _globalSettings) || !license.VerifySignature(_certificate))
+                if(license == null)
                 {
-                    _logger.LogInformation("Organization {0}({1}) has an invalid license and is being disabled.",
-                        org.Id, org.Name);
+                    await DisableOrganizationAsync(org, null);
+                    continue;
+                }
 
-                    org.Enabled = false;
-                    org.ExpirationDate = license.Expires;
-                    org.RevisionDate = DateTime.UtcNow;
-                    await _organizationRepository.ReplaceAsync(org);
+                var totalLicensedOrgs = enabledOrgs.Count(o => o.LicenseKey.Equals(license.LicenseKey));
+                if(totalLicensedOrgs > 1 || !license.VerifyData(org, _globalSettings) || !license.VerifySignature(_certificate))
+                {
+                    await DisableOrganizationAsync(org, license);
                 }
             }
+        }
+
+        private async Task DisableOrganizationAsync(Organization org, ILicense license)
+        {
+            _logger.LogInformation("Organization {0}({1}) has an invalid license and is being disabled.", org.Id, org.Name);
+            org.Enabled = false;
+            org.ExpirationDate = license?.Expires ?? DateTime.UtcNow;
+            org.RevisionDate = DateTime.UtcNow;
+            await _organizationRepository.ReplaceAsync(org);
         }
 
         public async Task ValidateUsersAsync()
@@ -102,10 +112,10 @@ namespace Bit.Core.Services
             foreach(var user in nonPremiumUsers)
             {
                 var details = await _organizationUserRepository.GetManyDetailsByUserAsync(user.Id);
-                if(details.Any(d => d.Enabled))
+                if(details.Any(d => d.SelfHost && d.UsersGetPremium && d.Enabled))
                 {
-                    _logger.LogInformation("Granting premium to user {0}({1}) because they are in an active organization.",
-                        user.Id, user.Email);
+                    _logger.LogInformation("Granting premium to user {0}({1}) because they are in an active organization " +
+                        "with premium features.", user.Id, user.Email);
 
                     user.Premium = true;
                     user.MaxStorageGb = 10240; // 10 TB
@@ -160,7 +170,7 @@ namespace Bit.Core.Services
             if(!valid)
             {
                 var details = await _organizationUserRepository.GetManyDetailsByUserAsync(user.Id);
-                valid = details.Any(d => d.Enabled);
+                valid = details.Any(d => d.SelfHost && d.UsersGetPremium && d.Enabled);
 
                 if(valid && (!string.IsNullOrWhiteSpace(user.LicenseKey) || user.PremiumExpirationDate.HasValue))
                 {
@@ -178,7 +188,7 @@ namespace Bit.Core.Services
                     user.Id, user.Email);
 
                 user.Premium = false;
-                user.PremiumExpirationDate = license.Expires;
+                user.PremiumExpirationDate = license?.Expires ?? DateTime.UtcNow;
                 user.RevisionDate = DateTime.UtcNow;
                 await _userRepository.ReplaceAsync(user);
             }
