@@ -15,6 +15,8 @@ namespace Bit.Setup
         private static Guid? _installationId = null;
         private static string _installationKey = null;
         private static string _hostOs = "win";
+        private static string _coreVersion = "latest";
+        private static string _webVersion = "latest";
 
         public static void Main(string[] args)
         {
@@ -23,6 +25,14 @@ namespace Bit.Setup
             if(_parameters.ContainsKey("os"))
             {
                 _hostOs = _parameters["os"];
+            }
+            if(_parameters.ContainsKey("corev"))
+            {
+                _coreVersion = _parameters["corev"];
+            }
+            if(_parameters.ContainsKey("webv"))
+            {
+                _webVersion = _parameters["webv"];
             }
 
             if(_parameters.ContainsKey("install"))
@@ -76,10 +86,7 @@ namespace Bit.Setup
             ssl = certBuilder.Ssl; // Ssl prop can get flipped during the build
 
             var url = ssl ? $"https://{domain}" : $"http://{domain}";
-            var nginxBuilder = new NginxConfigBuilder(domain, ssl, selfSignedSsl, letsEncrypt);
-            nginxBuilder.BuildForInstaller();
-
-            Console.Write("(!) Do you want to use the default HTTP (80) and HTTPS (443) ports? (y/n): ");
+            Console.Write("(!) Do you want to use the default ports for HTTP (80) and HTTPS (443)? (y/n): ");
             var defaultPorts = Console.ReadLine().ToLowerInvariant() == "y";
             int httpPort = default(int), httpsPort = default(int);
             if(!defaultPorts)
@@ -87,14 +94,25 @@ namespace Bit.Setup
                 Console.Write("(!) HTTP port: ");
                 if(int.TryParse(Console.ReadLine().ToLowerInvariant().Trim(), out httpPort))
                 {
-                    Console.Write("(!) HTTPS port: ");
-                    if(int.TryParse(Console.ReadLine().ToLowerInvariant().Trim(), out httpsPort))
+                    if(ssl)
                     {
-                        url += (":" + httpsPort);
+                        Console.Write("(!) HTTPS port: ");
+                        if(!int.TryParse(Console.ReadLine().ToLowerInvariant().Trim(), out httpsPort))
+                        {
+                            if(httpPort != 443)
+                            {
+                                url += (":" + httpsPort);
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid HTTPS port.");
+                            httpPort = default(int);
+                        }
                     }
-                    else
+                    else if(httpPort != 80)
                     {
-                        Console.WriteLine("Invalid HTTPS port.");
+                        url += (":" + httpPort);
                     }
                 }
                 else
@@ -105,6 +123,9 @@ namespace Bit.Setup
 
             Console.Write("(!) Do you want to use push notifications? (y/n): ");
             var push = Console.ReadLine().ToLowerInvariant() == "y";
+
+            var nginxBuilder = new NginxConfigBuilder(domain, url, ssl, selfSignedSsl, letsEncrypt);
+            nginxBuilder.BuildForInstaller();
 
             var environmentFileBuilder = new EnvironmentFileBuilder
             {
@@ -125,7 +146,7 @@ namespace Bit.Setup
             var appIdBuilder = new AppIdBuilder(url);
             appIdBuilder.Build();
 
-            var dockerComposeBuilder = new DockerComposeBuilder(_hostOs);
+            var dockerComposeBuilder = new DockerComposeBuilder(_hostOs, _webVersion, _coreVersion);
             dockerComposeBuilder.BuildForInstaller(httpPort, httpsPort);
         }
 
@@ -262,7 +283,7 @@ namespace Bit.Setup
 
             var domain = uri.Host;
 
-            var nginxBuilder = new NginxConfigBuilder(domain);
+            var nginxBuilder = new NginxConfigBuilder(domain, url);
             nginxBuilder.BuildForUpdater();
 
             var appSettingsBuilder = new AppSettingsBuilder(url, domain);
@@ -271,7 +292,7 @@ namespace Bit.Setup
             var appIdBuilder = new AppIdBuilder(url);
             appIdBuilder.Build();
 
-            var dockerComposeBuilder = new DockerComposeBuilder(_hostOs);
+            var dockerComposeBuilder = new DockerComposeBuilder(_hostOs, _webVersion, _coreVersion);
             dockerComposeBuilder.BuildForUpdater();
         }
 

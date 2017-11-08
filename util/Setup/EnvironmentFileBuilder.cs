@@ -9,31 +9,31 @@ namespace Bit.Setup
         private IDictionary<string, string> _globalValues;
         private IDictionary<string, string> _mssqlValues;
 
-        public string Url { get; set; }
-        public string Domain { get; set; }
-        public string IdentityCertPassword { get; set; }
+        public string Url { get; set; } = "https://localhost";
+        public string Domain { get; set; } = "localhost";
+        public string IdentityCertPassword { get; set; } = "REPLACE";
         public Guid? InstallationId { get; set; }
         public string InstallationKey { get; set; }
         public bool Push { get; set; }
-        public string DatabasePassword { get; set; }
-        public string OutputDirectory { get; set; }
+        public string DatabasePassword { get; set; } = "REPLACE";
+        public string OutputDirectory { get; set; } = ".";
 
         public void BuildForInstaller()
         {
             Directory.CreateDirectory("/bitwarden/env/");
-            Init();
+            Init(true);
             Build();
         }
 
         public void BuildForUpdater()
         {
-            Init();
+            Init(false);
             LoadExistingValues(_globalValues, "/bitwarden/env/global.override.env");
             LoadExistingValues(_mssqlValues, "/bitwarden/env/mssql.override.env");
             Build();
         }
 
-        private void Init()
+        private void Init(bool forInstall)
         {
             var dbConnectionString = Helpers.MakeSqlConnectionString("mssql", "vault", "sa", DatabasePassword);
             _globalValues = new Dictionary<string, string>
@@ -63,7 +63,7 @@ namespace Bit.Setup
                 ["globalSettings__disableUserRegistration"] = "false",
             };
 
-            if(!Push)
+            if(forInstall && !Push)
             {
                 _globalValues.Add("globalSettings__pushRelayBaseUri", "REPLACE");
             }
