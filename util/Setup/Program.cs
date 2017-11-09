@@ -97,9 +97,9 @@ namespace Bit.Setup
                     if(ssl)
                     {
                         Console.Write("(!) HTTPS port: ");
-                        if(!int.TryParse(Console.ReadLine().ToLowerInvariant().Trim(), out httpsPort))
+                        if(int.TryParse(Console.ReadLine().ToLowerInvariant().Trim(), out httpsPort))
                         {
-                            if(httpPort != 443)
+                            if(httpsPort != 443)
                             {
                                 url += (":" + httpsPort);
                             }
@@ -107,7 +107,7 @@ namespace Bit.Setup
                         else
                         {
                             Console.WriteLine("Invalid HTTPS port.");
-                            httpPort = default(int);
+                            httpPort = httpsPort = default(int);
                         }
                     }
                     else if(httpPort != 80)
@@ -167,15 +167,15 @@ namespace Bit.Setup
             var vaultUrl = Helpers.GetValueFronEnvFile("global", "globalSettings__baseServiceUri__vault");
             Console.WriteLine("\nbitwarden is up and running!");
             Console.WriteLine("===================================================");
-            Console.WriteLine("\n- visit {0}", vaultUrl);
-            Console.Write("- to update, run ");
+            Console.WriteLine("\nvisit {0}", vaultUrl);
+            Console.Write("to update, run ");
             if(_hostOs == "win")
             {
-                Console.Write("'.\\bitwarden.ps1 -update'");
+                Console.Write("'.\\bitwarden.ps1 -updateself' and then '.\\bitwarden.ps1 -update'");
             }
             else
             {
-                Console.Write("'./bitwarden.sh update'");
+                Console.Write("'./bitwarden.sh updateself' and then './bitwarden.sh update'");
             }
             Console.WriteLine("\n");
         }

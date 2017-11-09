@@ -16,7 +16,7 @@ GO
 UPDATE
     [dbo].[Organization]
 SET
-    [Plan] = 'Family'
+    [Plan] = 'Families'
 WHERE
     [PlanType] = 1
 GO
@@ -233,4 +233,18 @@ FROM
     [dbo].[OrganizationUser] OU
 INNER JOIN
     [dbo].[Organization] O ON O.[Id] = OU.[OrganizationId]
+GO
+
+IF EXISTS(SELECT * FROM sys.views WHERE [Name] = 'OrganizationView')
+BEGIN
+    DROP VIEW [dbo].[OrganizationView]
+END
+GO
+
+CREATE VIEW [dbo].[OrganizationView]
+AS
+SELECT
+    *
+FROM
+    [dbo].[Organization]
 GO
