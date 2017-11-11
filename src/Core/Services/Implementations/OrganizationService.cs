@@ -940,6 +940,12 @@ namespace Bit.Core.Services
                 }
             }
 
+            var existingOrgUser = await _organizationUserRepository.GetByOrganizationAsync(orgUser.OrganizationId, user.Email);
+            if(existingOrgUser != null)
+            {
+                throw new BadRequestException("You are already part of this organization.");
+            }
+
             var tokenValidationFailed = true;
             try
             {
@@ -1178,10 +1184,28 @@ namespace Bit.Core.Services
                 }
             }
 
-            // Add new users
             if(newUsers?.Any() ?? false)
             {
-                var existingUsersSet = new HashSet<string>(existingExternalUsers.Select(u => u.ExternalId));
+                // Marry existing users
+                var existingUsersEmailsDict = existingUsers
+                    .Where(u => string.IsNullOrWhiteSpace(u.ExternalId))
+                    .ToDictionary(u => u.Email);
+                var newUsersEmailsDict = newUsers.ToDictionary(u => u.Email);
+                var usersToAttach = existingUsersEmailsDict.Keys.Intersect(newUsersEmailsDict.Keys).ToList();
+                foreach(var user in usersToAttach)
+                {
+                    var orgUserDetails = existingUsersEmailsDict[user];
+                    var orgUser = await _organizationUserRepository.GetByIdAsync(orgUserDetails.Id);
+                    if(orgUser != null)
+                    {
+                        orgUser.ExternalId = newUsersEmailsDict[user].ExternalId;
+                        await _organizationUserRepository.UpsertAsync(orgUser);
+                        existingExternalUsersIdDict.Add(orgUser.ExternalId, orgUser.Id);
+                    }
+                }
+
+                // Add new users
+                var existingUsersSet = new HashSet<string>(existingExternalUsersIdDict.Keys);
                 var usersToAdd = newUsersSet.Except(existingUsersSet).ToList();
 
                 var seatsAvailable = int.MaxValue;
@@ -1212,23 +1236,6 @@ namespace Bit.Core.Services
                         {
                             continue;
                         }
-                    }
-                }
-
-                var existingUsersEmailsDict = existingUsers
-                    .Where(u => string.IsNullOrWhiteSpace(u.ExternalId))
-                    .ToDictionary(u => u.Email);
-                var newUsersEmailsDict = newUsers.ToDictionary(u => u.Email);
-                var usersToAttach = existingUsersEmailsDict.Keys.Intersect(newUsersEmailsDict.Keys).ToList();
-                foreach(var user in usersToAttach)
-                {
-                    var orgUserDetails = existingUsersEmailsDict[user];
-                    var orgUser = await _organizationUserRepository.GetByIdAsync(orgUserDetails.Id);
-                    if(orgUser != null)
-                    {
-                        orgUser.ExternalId = newUsersEmailsDict[user].ExternalId;
-                        await _organizationUserRepository.UpsertAsync(orgUser);
-                        existingExternalUsersIdDict.Add(orgUser.ExternalId, orgUser.Id);
                     }
                 }
             }
