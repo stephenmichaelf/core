@@ -60,39 +60,35 @@ namespace Bit.Core.Utilities
             if(blockedCount > 10)
             {
                 _blockIpService.BlockIpAsync(identity.ClientIp, false);
-                _logger.LogInformation($"Blocked {identity.ClientIp} with token {GetToken(httpContext.Request)}");
+                _logger.LogInformation($"Banned {identity.ClientIp}. Info: {GetRequestInfo(httpContext)}");
             }
             else
             {
+                _logger.LogInformation($"Request blocked {identity.ClientIp}. Info: {GetRequestInfo(httpContext)}");
                 _memoryCache.Set(key, blockedCount,
                     new MemoryCacheEntryOptions().SetSlidingExpiration(new TimeSpan(0, 5, 0)));
             }
         }
 
-        private string GetToken(HttpRequest request)
+        private string GetRequestInfo(HttpContext httpContext)
         {
-            if(request == null)
+            if(httpContext == null || httpContext.Request == null)
             {
                 return null;
             }
 
-            var authorization = request.Headers["Authorization"].FirstOrDefault();
-            if(string.IsNullOrWhiteSpace(authorization))
+            var s = string.Empty;
+            foreach(var header in httpContext.Request.Headers)
             {
-                // Bearer token could exist in the 'Content-Language' header on clients that want to avoid pre-flights.
-                var languageAuth = request.Headers["Content-Language"].FirstOrDefault();
-                if(string.IsNullOrWhiteSpace(languageAuth) ||
-                    !languageAuth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                {
-                    return request.Query["access_token"].FirstOrDefault();
-                }
-                else
-                {
-                    authorization = languageAuth.Split(',')[0];
-                }
+                s += $"H_{header.Key}: {header.Value} | ";
             }
 
-            return authorization;
+            foreach(var query in httpContext.Request.Query)
+            {
+                s += $"Q_{query.Key}: {query.Value} | ";
+            }
+
+            return s;
         }
     }
 }
