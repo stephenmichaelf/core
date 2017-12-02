@@ -20,13 +20,14 @@ using Microsoft.WindowsAzure.Storage;
 using System;
 using System.IO;
 using SqlServerRepos = Bit.Core.Repositories.SqlServer;
+using TableStorageRepos = Bit.Core.Repositories.TableStorage;
 using System.Threading.Tasks;
 
 namespace Bit.Core.Utilities
 {
     public static class ServiceCollectionExtensions
     {
-        public static void AddSqlServerRepositories(this IServiceCollection services)
+        public static void AddSqlServerRepositories(this IServiceCollection services, GlobalSettings globalSettings)
         {
             services.AddSingleton<IUserRepository, SqlServerRepos.UserRepository>();
             services.AddSingleton<ICipherRepository, SqlServerRepos.CipherRepository>();
@@ -40,16 +41,26 @@ namespace Bit.Core.Utilities
             services.AddSingleton<IGroupRepository, SqlServerRepos.GroupRepository>();
             services.AddSingleton<IU2fRepository, SqlServerRepos.U2fRepository>();
             services.AddSingleton<IInstallationRepository, SqlServerRepos.InstallationRepository>();
+
+            if(globalSettings.SelfHosted)
+            {
+                // TODO: Sql server repo
+            }
+            else
+            {
+                services.AddSingleton<IEventRepository, TableStorageRepos.EventRepository>();
+            }
         }
 
         public static void AddBaseServices(this IServiceCollection services)
         {
-            services.AddSingleton<ICipherService, CipherService>();
+            services.AddScoped<ICipherService, CipherService>();
             services.AddScoped<IUserService, UserService>();
             services.AddSingleton<IDeviceService, DeviceService>();
-            services.AddSingleton<IOrganizationService, OrganizationService>();
-            services.AddSingleton<ICollectionService, CollectionService>();
-            services.AddSingleton<IGroupService, GroupService>();
+            services.AddScoped<IOrganizationService, OrganizationService>();
+            services.AddScoped<ICollectionService, CollectionService>();
+            services.AddScoped<IGroupService, GroupService>();
+            services.AddScoped<Services.IEventService, EventService>();
         }
 
         public static void AddDefaultServices(this IServiceCollection services, GlobalSettings globalSettings)
