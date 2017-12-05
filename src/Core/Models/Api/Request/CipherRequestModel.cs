@@ -39,7 +39,7 @@ namespace Bit.Core.Models.Api
             {
                 Type = Type,
                 UserId = string.IsNullOrWhiteSpace(OrganizationId) ? (Guid?)userId : null,
-                OrganizationId = string.IsNullOrWhiteSpace(OrganizationId) ? (Guid?)null : new Guid(OrganizationId),
+                OrganizationId = null,
                 Edit = true
             };
             ToCipherDetails(cipher);

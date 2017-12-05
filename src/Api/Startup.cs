@@ -14,13 +14,13 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json.Serialization;
 using AspNetCoreRateLimit;
-using Bit.Api.Middleware;
 using Serilog.Events;
 using Stripe;
 using Bit.Core.Utilities;
 using IdentityModel;
 using IdentityServer4.AccessTokenValidation;
 using jsreport.AspNetCore;
+using Bit.Core.IdentityServer;
 
 namespace Bit.Api
 {
@@ -122,13 +122,6 @@ namespace Bit.Api
             services.AddBaseServices();
             services.AddDefaultServices(globalSettings);
 
-            // Cors
-            services.AddCors(config =>
-            {
-                config.AddPolicy("All", policy =>
-                    policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin().SetPreflightMaxAge(TimeSpan.FromDays(1)));
-            });
-
             // MVC
             services.AddMvc(config =>
             {
@@ -196,7 +189,7 @@ namespace Bit.Api
             app.UseStaticFiles();
 
             // Add Cors
-            app.UseCors("All");
+            app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader().AllowCredentials());
 
             // Add authentication to the request pipeline.
             app.UseAuthentication();
