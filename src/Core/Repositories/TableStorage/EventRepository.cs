@@ -11,16 +11,20 @@ namespace Bit.Core.Repositories.TableStorage
 {
     public class EventRepository : IEventRepository
     {
+        private readonly CloudTable _table;
+
         public EventRepository(GlobalSettings globalSettings)
+            : this(globalSettings.Storage.ConnectionString)
+        { }
+
+        public EventRepository(string storageConnectionString)
         {
-            var storageAccount = CloudStorageAccount.Parse(globalSettings.Storage.ConnectionString);
+            var storageAccount = CloudStorageAccount.Parse(storageConnectionString);
             var tableClient = storageAccount.CreateCloudTableClient();
-            Table = tableClient.GetTableReference("event");
+            _table = tableClient.GetTableReference("event");
         }
 
-        protected CloudTable Table { get; set; }
-
-        public async Task<ICollection<EventTableEntity>> GetManyByUserAsync(Guid userId,
+        public async Task<ICollection<IEvent>> GetManyByUserAsync(Guid userId,
             DateTime startDate, DateTime endDate)
         {
             var start = CoreHelpers.DateTimeToTableStorageKey(startDate);
@@ -41,39 +45,45 @@ namespace Bit.Core.Repositories.TableStorage
             TableContinuationToken continuationToken = null;
             do
             {
-                var queryResults = await Table.ExecuteQuerySegmentedAsync(query, continuationToken);
+                var queryResults = await _table.ExecuteQuerySegmentedAsync(query, continuationToken);
                 continuationToken = queryResults.ContinuationToken;
                 results.AddRange(queryResults.Results);
             } while(continuationToken != null);
 
-            return results;
+            return results.Select(r => r as IEvent).ToList();
         }
 
-        public async Task CreateAsync(ITableEntity entity)
+        public async Task CreateAsync(IEvent e)
         {
-            await Table.ExecuteAsync(TableOperation.Insert(entity));
+            if(!(e is EventTableEntity entity))
+            {
+                throw new ArgumentException(nameof(e));
+            }
+
+            await CreateEntityAsync(entity);
         }
 
-        public async Task CreateManyAsync(IList<ITableEntity> entities)
+        public async Task CreateManyAsync(IList<IEvent> e)
         {
-            if(!entities?.Any() ?? true)
+            if(!e?.Any() ?? true)
             {
                 return;
             }
 
-            if(entities.Count == 1)
+            if(e.Count == 1)
             {
-                await CreateAsync(entities.First());
+                await CreateAsync(e.First());
                 return;
             }
 
-            var entityGroups = entities.GroupBy(e => e.PartitionKey);
+            var entities = e.Where(ev => ev is EventTableEntity).Select(ev => ev as EventTableEntity);
+            var entityGroups = entities.GroupBy(ent => ent.PartitionKey);
             foreach(var group in entityGroups)
             {
                 var groupEntities = group.ToList();
                 if(groupEntities.Count == 1)
                 {
-                    await CreateAsync(groupEntities.First());
+                    await CreateEntityAsync(groupEntities.First());
                     continue;
                 }
 
@@ -93,9 +103,14 @@ namespace Bit.Core.Repositories.TableStorage
                         batch.InsertOrReplace(entity);
                     }
 
-                    await Table.ExecuteBatchAsync(batch);
+                    await _table.ExecuteBatchAsync(batch);
                 }
             }
+        }
+
+        public async Task CreateEntityAsync(ITableEntity entity)
+        {
+            await _table.ExecuteAsync(TableOperation.Insert(entity));
         }
     }
 }

@@ -1,31 +1,28 @@
 ﻿using System.Threading.Tasks;
 using Bit.Core.Repositories;
 using System.Collections.Generic;
-using Microsoft.WindowsAzure.Storage.Table;
+using Bit.Core.Models.Data;
 
 namespace Bit.Core.Services
 {
     public class RepositoryEventWriteService : IEventWriteService
     {
         private readonly IEventRepository _eventRepository;
-        private readonly GlobalSettings _globalSettings;
 
         public RepositoryEventWriteService(
-            IEventRepository eventRepository,
-            GlobalSettings globalSettings)
+            IEventRepository eventRepository)
         {
             _eventRepository = eventRepository;
-            _globalSettings = globalSettings;
         }
 
-        public async Task CreateAsync(ITableEntity entity)
+        public async Task CreateAsync(IEvent e)
         {
-            await _eventRepository.CreateAsync(entity);
+            await _eventRepository.CreateAsync(e);
         }
 
-        public async Task CreateManyAsync(IList<ITableEntity> entities)
+        public async Task CreateManyAsync(IList<IEvent> e)
         {
-            await _eventRepository.CreateManyAsync(entities);
+            await _eventRepository.CreateManyAsync(e);
         }
     }
 }
